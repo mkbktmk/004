@@ -100,6 +100,62 @@ def expand_refs(items: List[Dict], limit: int = MAX_EXTRA) -> List[Dict]:
     return extra
 
 
+def _reverse_index() -> Dict[str, List[str]]:
+    """构建反向引用索引：被引用条号 -> 引用了它的条文 id 列表。
+
+    正向补全解决"命中的条文引用了谁"，反向解决"谁引用了命中的条文"。
+    后者是 q23 的关键：第四十五条引用第四十二条，但从第四十二条出发正向找不到它。
+    """
+    index: Dict[str, List[str]] = {}
+    for chunk in _load_chunks().values():
+        for article in parse_refs(chunk["text"]):
+            index.setdefault(article, []).append(chunk["id"])
+    return index
+
+
+def expand_reverse(items: List[Dict], limit: int = 1) -> List[Dict]:
+    """补入引用了命中条文的条文（仅同法规、去重、最多 limit 条）。
+
+    Args:
+        items: 检索结果。
+        limit: 最多补几条。
+
+    Returns:
+        新增条文列表，via 标注为"某条引用了它"。
+    """
+    chunks = _load_chunks()
+    reverse = _reverse_index()
+    seen = {(item["law"], item["article_no"]) for item in items}
+    extra: List[Dict] = []
+    for item in items:
+        for chunk_id in reverse.get(item["article_no"], []):
+            chunk = chunks.get(chunk_id)
+            if chunk is None or chunk["law"] != item["law"]:
+                continue
+            key = (chunk["law"], chunk["article_no"])
+            if key in seen:
+                continue
+            seen.add(key)
+            extra.append(
+                {
+                    "id": chunk["id"],
+                    "law": chunk["law"],
+                    "article_no": chunk["article_no"],
+                    "chapter": chunk.get("chapter", ""),
+                    "text": chunk["text"],
+                    "score": None,
+                    "via": f"引用《{item['article_no']}》的条文",
+                }
+            )
+            if len(extra) >= limit:
+                return extra
+    if extra:
+        logger.info(
+            "反向补全 %d 条：%s", len(extra), "、".join(e["article_no"] for e in extra)
+        )
+    return extra
+
+
 def list_laws() -> List[str]:
     """返回知识库当前包含的法规名（按条文块数降序），用于能力介绍。
 
@@ -123,4 +179,7 @@ def retrieve_auto(query: str, topk_final: int = 5) -> List[Dict]:
         检索结果，前段为混合检索命中，末尾为引用补全条文。
     """
     items = get_retriever().retrieve(query, topk_final=topk_final, mode="hybrid")
-    return items + expand_refs(items)
+    # 正向与反向各留一个额度：正向补"它引用了谁"，反向补"谁引用了它"
+    extra = expand_refs(items, limit=1)
+    extra += expand_reverse(items, limit=MAX_EXTRA - len(extra))
+    return items + extra

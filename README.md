@@ -49,6 +49,7 @@ python -m src.build_index        # 建索引（重跑会幂等重建 collection�
 streamlit run app.py             # 旧版单用户界面（保留作调试）
 python -m src.evaluate           # 跑评测；调试用 python -m src.evaluate --limit 5 --only A,C
 python eval/run_extra.py         # 跑补充测试集（9 题，含工时类）；--testset 可指定其他集
+python eval/run_multi.py         # 跑多轮场景（5 例：指代、回溯、换主题、元问题）
 ```
 
 ## Web 服务（多角色版）
@@ -61,7 +62,8 @@ uvicorn web.main:app --reload --port 8000     # 启动后访问 http://127.0.0.1
 - 管理员账号由服务启动时创建，用户名/密码取自 `.env` 的 `ADMIN_USERNAME` / `ADMIN_PASSWORD`；
   未配置密码时会生成随机密码并打印到启动日志。
 - 会话历史存 `data/app.sqlite3`（users / auth_tokens / chat_sessions / messages / documents）。
-- 多轮记忆：最近 4 条消息进 Prompt；含指代词的追问（"那如果我月薪9000呢"）会自动拼上一轮问题去检索。
+- 多轮记忆：最近 6 条消息进 Prompt，其中**助手回答只保留【结论】段**（完整答案动辄五六百字，四轮就吃满预算）；
+  含指代词的追问（"那如果我月薪9000呢"）会自动回溯到"有主题的那一问"再拼接检索。
 - 对话为**流式输出**：`POST /api/chat/stream` 用 SSE（`text/event-stream`）先推 `meta`（会话 id + 检索到的条文），
   再逐字推 `delta`，最后 `done`（耗时与引用校验）。非流式的 `/api/chat` 保留，评测与调试仍用它。
 - 知识库管理页 `/admin`（仅管理员）：上传 txt/md/pdf，后台切块建索引；同名法规整部替换，

@@ -50,19 +50,50 @@ def _has_topic_noun(question: str) -> bool:
     "你就告诉我违反没有"这类句子只有代词和动词，单独拿去检索会命中无关条文
     （"违反"匹配到"劳动者违反本法规定"），必须拼上上一轮问题。
 
+    注意：jieba 是全局状态，检索侧 add_word 过的领域词会被标成 x（未登录词），
+    不能只看词性，还要认 DOMAIN_WORDS 里的词，否则"竞业限制最长几年"会被误判。
+
     Args:
         question: 用户问题。
 
     Returns:
-        含两个汉字以上的名词时返回 True。
+        含两个汉字以上的名词（或领域词）时返回 True。
     """
     import jieba.posseg as pseg
 
-    return any(flag.startswith("n") and len(word) >= 2 for word, flag in pseg.cut(question))
+    from src.config import DOMAIN_WORDS
+
+    for word, flag in pseg.cut(question):
+        if flag.startswith("n") and len(word) >= 2:
+            return True
+        if word in DOMAIN_WORDS:
+            return True
+    return False
+
+
+def _topic_question(history: List[Dict]) -> str:
+    """取最近一条"带主题"的用户问题，跳过"那持续两个月呢"这类无主题短句。
+
+    多轮里常出现连续追问，最近一条本身缺主题（只有"两个月""还是没有"），
+    直接拿它拼接仍然检索不到东西，要往前回溯到真正提出事实的那一句。
+
+    Args:
+        history: 之前的消息。
+
+    Returns:
+        最近一条有主题的用户问题；都没有则返回空串。
+    """
+    for message in reversed(history):
+        if message.get("role") != "user":
+            continue
+        text = str(message.get("content", "")).strip()
+        if _has_topic_noun(text) or len(text) > 12:
+            return text
+    return ""
 
 
 def build_search_query(question: str, history: List[Dict]) -> str:
-    """为检索构造查询：追问式提问时拼上上一轮问题。
+    """为检索构造查询：追问式提问时拼上"有主题的"上一轮问题。
 
     三层判定，任一命中即拼接：含指代词、无主题名词（如"你就告诉我违反没有"）。
     拼接的第二条规则里当前问题重复一次，避免历史主题压过当前提问。
@@ -74,12 +105,14 @@ def build_search_query(question: str, history: List[Dict]) -> str:
     Returns:
         用于检索的查询文本。
     """
-    previous = next((m["content"] for m in reversed(history) if m["role"] == "user"), "")
+    previous = _topic_question(history)
     if not previous:
         return question
     if any(word in question for word in ANAPHORA):
         logger.info("追问改写：%s + %s", previous[:20], question[:20])
-        return f"{previous} {question}"
+        # 当前问题重复一次：省略主语的追问（"那补偿怎么算"）语义重心在当前句，
+        # 不加重会被历史里的"社保"压过去，检索跑到社保缴纳而非经济补偿
+        return f"{previous} {question} {question}"
     if not _has_topic_noun(question):
         logger.info("无主题名词，拼接上轮问题：%s + %s", previous[:20], question[:20])
         return f"{previous} {question} {question}"

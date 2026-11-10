@@ -67,6 +67,28 @@ META_TEMPLATE = """用户正在询问本次对话本身，请依据下面的【�
 {question}"""
 
 
+HISTORY_MAX = 120
+
+
+def _squash(text: str, limit: int = HISTORY_MAX) -> str:
+    """压缩历史里的助手回答：只留结论，避免旧答案把上下文撑满。
+
+    完整答案动辄五六百字，四轮就吃掉大半 Prompt 预算；而多轮真正需要的是
+    "上一轮结论是什么"，不是它的每一条依据。
+
+    Args:
+        text: 助手回答原文。
+        limit: 压缩后的最大字数。
+
+    Returns:
+        压成一句的文本。
+    """
+    flat = " ".join(str(text).split())
+    if "【结论】" in flat:
+        flat = flat.split("【结论】", 1)[1].split("【依据】")[0].strip()
+    return flat[:limit]
+
+
 def format_history(history: List[Dict] | None, limit: int = 4, hint: bool = True) -> str:
     """把最近若干轮对话压成短文本，供 Prompt 使用。
 
@@ -83,9 +105,10 @@ def format_history(history: List[Dict] | None, limit: int = 4, hint: bool = True
     recent = history[-limit:]
     lines = []
     for message in recent:
-        who = "用户" if message.get("role") == "user" else "助手"
-        text = " ".join(str(message.get("content", "")).split())
-        lines.append(f"{who}：{text[:200]}")
+        if message.get("role") == "user":
+            lines.append(f"用户：{' '.join(str(message.get('content', '')).split())[:200]}")
+        else:
+            lines.append(f"助手：{_squash(message.get('content', ''))}")
     body = "\n".join(lines)
     return HISTORY_BLOCK.format(history=body) if hint else body
 
