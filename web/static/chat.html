@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>劳动法智能问答助手</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; height:100vh; overflow:hidden; color:#1f2328;
+         font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; }
+  .app { display:flex; height:100vh; }
+  aside { width:248px; flex:0 0 248px; border-right:1px solid #e5e7eb; background:#fafafa;
+          display:flex; flex-direction:column; }
+  aside header { padding:16px 14px 10px; font-size:15px; font-weight:600; }
+  #new { margin:0 14px 12px; padding:9px; font-size:13px; color:#2563eb; background:#fff;
+         border:1px solid #dbeafe; border-radius:8px; cursor:pointer; }
+  #new:hover { background:#eff6ff; }
+  #sessions { flex:1; overflow-y:auto; margin:0; padding:0 8px 8px; list-style:none; }
+  #sessions li { display:flex; align-items:center; gap:6px; padding:9px 10px; margin-bottom:4px;
+                 font-size:13px; color:#374151; border-radius:8px; cursor:pointer; }
+  #sessions li:hover { background:#eef2f7; }
+  #sessions li.active { background:#e8effd; color:#1d4ed8; }
+  #sessions .name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #sessions .del { border:0; background:transparent; color:#9ca3af; cursor:pointer; font-size:12px; }
+  #sessions .del:hover { color:#dc2626; }
+  aside footer { border-top:1px solid #e5e7eb; padding:12px 14px; font-size:12px; color:#6b7280;
+                 display:flex; align-items:center; justify-content:space-between; }
+  #logout { border:0; background:transparent; color:#2563eb; font-size:12px; cursor:pointer; }
+  main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  #messages { flex:1; overflow-y:auto; padding:28px 32px; }
+  .bubble { max-width:760px; margin-bottom:18px; }
+  .bubble.user { margin-left:auto; }
+  .bubble .text { padding:12px 15px; border-radius:12px; font-size:14px; line-height:1.75;
+                  white-space:pre-wrap; word-break:break-word; }
+  .bubble.user .text { background:#2563eb; color:#fff; }
+  .bubble.assistant .text { background:#f4f5f7; color:#1f2328; }
+  .bubble.user .text { max-width:560px; }
+  details { margin-top:8px; font-size:12px; color:#6b7280; }
+  details summary { cursor:pointer; color:#2563eb; }
+  details ul { margin:8px 0 0; padding-left:16px; }
+  details li { margin-bottom:8px; line-height:1.6; }
+  details li p { margin:2px 0 0; color:#4b5563; }
+  details em { font-style:normal; color:#9a3412; }
+  .empty { color:#9ca3af; font-size:14px; text-align:center; margin-top:20vh; line-height:1.8; }
+  form { border-top:1px solid #e5e7eb; padding:14px 32px 18px; display:flex; gap:10px; align-items:flex-end; }
+  textarea { flex:1; resize:none; padding:10px 12px; font-size:14px; line-height:1.6; font-family:inherit;
+             color:#111827; border:1px solid #d1d5db; border-radius:10px; }
+  textarea:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+  #send { padding:10px 20px; font-size:14px; border:0; border-radius:10px; background:#2563eb;
+          color:#fff; cursor:pointer; }
+  #send:disabled { background:#93b4f5; cursor:not-allowed; }
+  .meta { font-size:12px; color:#9ca3af; margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <header>劳动法问答</header>
+    <button id="new">＋ 新对话</button>
+    <ul id="sessions"></ul>
+    <footer>
+      <span id="who">…</span>
+      <span>
+        <a id="adminLink" href="/admin" style="display:none;color:#2563eb;text-decoration:none;margin-right:12px;">知识库</a>
+        <button id="logout">退出</button>
+      </span>
+    </footer>
+  </aside>
+  <main>
+    <div id="messages"><div class="empty">输入你的劳动法问题，<br>系统会检索条文并标注出处。</div></div>
+    <form id="composer">
+      <textarea id="q" rows="2" placeholder="例如：月薪6000元，工作日加班10小时，加班费多少？"></textarea>
+      <button id="send" type="submit">发送</button>
+    </form>
+  </main>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const messages = $('messages');
+const list = $('sessions');
+let sessionId = '';
+let currentUser = null;
+
+async function api(url, options) {
+  const res = await fetch(url, options);
+  if (res.status === 401) { location.href = '/'; throw new Error('未登录'); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || '请求失败');
+  return data;
+}
+
+function createBubble(role) {
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble ' + role;
+  const body = document.createElement('div');
+  body.className = 'text';
+  bubble.appendChild(body);
+  const holder = messages.querySelector('.empty');
+  if (holder) holder.remove();
+  messages.appendChild(bubble);
+  messages.scrollTop = messages.scrollHeight;
+  return { bubble: bubble, body: body };
+}
+
+function appendSources(bubble, sources) {
+  if (!sources || !sources.length) return;
+  const box = document.createElement('details');
+  const sum = document.createElement('summary');
+  sum.textContent = '引用条文（' + sources.length + '）';
+  box.appendChild(sum);
+  const ul = document.createElement('ul');
+  sources.forEach((s) => {
+    const li = document.createElement('li');
+    const head = document.createElement('strong');
+    head.textContent = s.law + ' ' + s.article_no;
+    li.appendChild(head);
+    if (s.via) {
+      const via = document.createElement('em');
+      via.textContent = ' · ' + s.via;
+      li.appendChild(via);
+    }
+    const p = document.createElement('p');
+    p.textContent = s.text || '';
+    li.appendChild(p);
+    ul.appendChild(li);
+  });
+  box.appendChild(ul);
+  bubble.appendChild(box);
+}
+
+function addMessage(role, text, sources) {
+  const made = createBubble(role);
+  made.body.textContent = text;
+  appendSources(made.bubble, sources);
+}
+
+function clearMessages() {
+  messages.innerHTML = '';
+}
+
+function renderSessions(items) {
+  list.innerHTML = '';
+  items.forEach((item) => {
+    const li = document.createElement('li');
+    li.className = item.id === sessionId ? 'active' : '';
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = item.title;
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '删除';
+    del.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      await api('/api/sessions/' + item.id, { method: 'DELETE' });
+      if (item.id === sessionId) { sessionId = ''; clearMessages(); }
+      loadSessions();
+    });
+    li.appendChild(name);
+    li.appendChild(del);
+    li.addEventListener('click', () => openSession(item.id));
+    list.appendChild(li);
+  });
+}
+
+async function loadSessions() {
+  const data = await api('/api/sessions');
+  renderSessions(data.sessions);
+}
+
+async function openSession(id) {
+  const data = await api('/api/sessions/' + id);
+  sessionId = id;
+  clearMessages();
+  data.messages.forEach((m) => addMessage(m.role, m.content, m.sources));
+  loadSessions();
+}
+
+async function send(question) {
+  const button = $('send');
+  button.disabled = true;
+  addMessage('user', question);
+  const made = createBubble('assistant');
+  made.body.textContent = '检索法条…';
+  let answer = '';
+  let sources = [];
+  let gotMeta = false;
+
+  const handle = (raw) => {
+    const lines = raw.split('\n');
+    let kind = 'message';
+    let data = '';
+    lines.forEach((line) => {
+      if (line.indexOf('event:') === 0) kind = line.slice(6).trim();
+      else if (line.indexOf('data:') === 0) data += line.slice(5).trim();
+    });
+    if (!data) return;
+    const payload = JSON.parse(data);
+    if (kind === 'meta') {
+      sessionId = payload.session_id;
+      sources = payload.sources || [];
+      gotMeta = true;
+      made.body.textContent = '';
+    } else if (kind === 'delta') {
+      answer += payload.text;
+      made.body.textContent = answer;
+      messages.scrollTop = messages.scrollHeight;
+    } else if (kind === 'done') {
+      appendSources(made.bubble, sources);
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = '耗时 ' + payload.elapsed + 's · ' + (payload.model || '-');
+      messages.appendChild(meta);
+      messages.scrollTop = messages.scrollHeight;
+      loadSessions();
+    } else if (kind === 'error') {
+      made.body.textContent = answer + '\n\n[生成中断] ' + payload.detail;
+    }
+  };
+
+  try {
+    const res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: question, session_id: sessionId })
+    });
+    if (res.status === 401) { location.href = '/'; return; }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || '请求失败');
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const step = await reader.read();
+      if (step.done) break;
+      buffer += decoder.decode(step.value, { stream: true });
+      let cut;
+      while ((cut = buffer.indexOf('\n\n')) >= 0) {
+        handle(buffer.slice(0, cut));
+        buffer = buffer.slice(cut + 2);
+      }
+    }
+    if (buffer.trim()) handle(buffer);
+    if (!gotMeta && !answer) made.body.textContent = '未收到回答，请重试';
+    if (answer === '' && gotMeta) made.body.textContent = '（模型未返回内容）';
+  } catch (err) {
+    made.body.textContent = answer ? answer + '\n\n[中断] ' + err.message : '出错了：' + err.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+$('new').addEventListener('click', () => {
+  sessionId = '';
+  clearMessages();
+  messages.innerHTML = '<div class="empty">新对话已开始，输入你的问题。</div>';
+  loadSessions();
+});
+
+$('composer').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const box = $('q');
+  const question = box.value.trim();
+  if (!question) return;
+  box.value = '';
+  send(question);
+});
+
+$('q').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    $('composer').requestSubmit();
+  }
+});
+
+$('logout').addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  location.href = '/';
+});
+
+(async () => {
+  try {
+    currentUser = await api('/api/auth/me');
+    $('who').textContent = currentUser.username + (currentUser.role === 'admin' ? ' · 管理员' : '');
+    if (currentUser.role === 'admin') $('adminLink').style.display = 'inline';
+    await loadSessions();
+  } catch (err) { /* 未登录会跳转 */ }
+})();
+</script>
+</body>
+</html>

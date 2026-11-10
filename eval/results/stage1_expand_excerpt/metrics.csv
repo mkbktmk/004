@@ -1,0 +1,5 @@
+﻿config,n,hit@3,recall@5,citation_accuracy,refusal_correct
+A_vector,15,1.0,0.9722,0.9375,1.0
+B_bm25,15,1.0,0.9722,1.0,1.0
+C_hybrid,15,1.0,0.9722,0.9583,1.0
+D_hybrid_verify,15,1.0,0.9722,0.9583,1.0

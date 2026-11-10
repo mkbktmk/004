@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · 劳动法智能问答助手</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; background:#f5f6f8; color:#1f2328; }
+  .card { width:352px; padding:32px; background:#fff; border:1px solid #e5e7eb; border-radius:14px; }
+  h1 { font-size:18px; font-weight:600; margin:0 0 6px; }
+  .hint { font-size:13px; color:#6b7280; margin:0 0 20px; line-height:1.6; }
+  label { display:block; font-size:13px; color:#374151; margin:14px 0 6px; }
+  input { width:100%; box-sizing:border-box; padding:9px 11px; font-size:14px; color:#111827;
+          border:1px solid #d1d5db; border-radius:8px; background:#fff; }
+  input:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+  button { width:100%; padding:10px; font-size:14px; border-radius:8px; cursor:pointer; margin-top:18px; }
+  #submit { border:0; background:#2563eb; color:#fff; }
+  #submit:hover { background:#1d4ed8; }
+  .ghost { border:1px solid #dbeafe; background:#fff; color:#2563eb; margin-top:10px; }
+  .msg { min-height:18px; margin-top:14px; font-size:13px; line-height:1.5; }
+  .msg.err { color:#b91c1c; }
+  .msg.ok { color:#15803d; }
+  .foot { margin-top:18px; font-size:12px; color:#9ca3af; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1 id="title">登录</h1>
+  <p class="hint">劳动法智能问答助手 · 依据本地法规库作答并标注出处</p>
+  <form id="form">
+    <label for="username">用户名</label>
+    <input id="username" name="username" autocomplete="username" minlength="2" maxlength="32" required>
+    <label for="password">密码</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" minlength="6" maxlength="64" required>
+    <button id="submit" type="submit">登录</button>
+    <button id="switch" class="ghost" type="button">没有账号？注册</button>
+  </form>
+  <div id="msg" class="msg"></div>
+  <p class="foot">普通用户可直接注册；管理员账号由服务端初始化生成。</p>
+</div>
+<script>
+const form = document.getElementById('form');
+const msg = document.getElementById('msg');
+const title = document.getElementById('title');
+const submit = document.getElementById('submit');
+const switchBtn = document.getElementById('switch');
+let mode = 'login';
+
+function show(text, kind) {
+  msg.className = 'msg ' + (kind || '');
+  msg.textContent = text || '';
+}
+
+async function post(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || '请求失败');
+  return data;
+}
+
+switchBtn.addEventListener('click', () => {
+  mode = mode === 'login' ? 'register' : 'login';
+  const isLogin = mode === 'login';
+  title.textContent = isLogin ? '登录' : '注册';
+  submit.textContent = isLogin ? '登录' : '注册并登录';
+  switchBtn.textContent = isLogin ? '没有账号？注册' : '已有账号？去登录';
+  show('');
+});
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  submit.disabled = true;
+  try {
+    if (mode === 'register') {
+      await post('/api/auth/register', { username, password });
+      show('注册成功，正在登录…', 'ok');
+    }
+    await post('/api/auth/login', { username, password });
+    location.href = '/chat';
+  } catch (err) {
+    show(err.message, 'err');
+    submit.disabled = false;
+  }
+});
+
+fetch('/api/auth/me').then(r => { if (r.ok) location.href = '/chat'; }).catch(() => {});
+</script>
+</body>
+</html>

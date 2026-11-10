@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理后台 · 劳动法智能问答助手</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; background:#f7f8fa; color:#1f2328;
+         font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; }
+  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:14px 28px;
+           display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size:16px; font-weight:600; margin:0; }
+  header .right { font-size:13px; color:#6b7280; display:flex; gap:14px; align-items:center; }
+  header a { color:#2563eb; text-decoration:none; font-size:13px; }
+  main { max-width:1040px; margin:20px auto 60px; padding:0 24px; }
+  .tabs { display:flex; gap:6px; margin-bottom:16px; }
+  .tabs button { padding:8px 16px; font-size:13px; border:1px solid #e5e7eb; background:#fff;
+                 color:#4b5563; border-radius:8px; cursor:pointer; }
+  .tabs button.on { background:#2563eb; border-color:#2563eb; color:#fff; }
+  section { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; margin-bottom:16px; }
+  section h2 { font-size:14px; font-weight:600; margin:0 0 14px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr)); gap:10px; }
+  .card { border:1px solid #eef0f3; border-radius:10px; padding:12px 14px; background:#fcfcfd; }
+  .card .k { font-size:12px; color:#6b7280; }
+  .card .v { font-size:20px; font-weight:600; margin-top:5px; }
+  .card .u { font-size:11px; color:#9ca3af; margin-top:3px; }
+  .chart { display:flex; align-items:flex-end; gap:5px; height:120px; margin-top:8px; }
+  .bar { flex:1; height:100%; display:flex; align-items:flex-end; }
+  .bar span { width:100%; background:#bfdbfe; border-radius:3px 3px 0 0; min-height:2px; }
+  .bar:hover span { background:#60a5fa; }
+  .axis { display:flex; justify-content:space-between; font-size:11px; color:#9ca3af; margin-top:6px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; color:#6b7280; font-weight:500; padding:8px 10px; border-bottom:1px solid #e5e7eb; }
+  td { padding:9px 10px; border-bottom:1px solid #f1f2f4; vertical-align:middle; }
+  tr:last-child td { border-bottom:0; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; }
+  .tag.done { background:#dcfce7; color:#15803d; }
+  .tag.indexing { background:#fef3c7; color:#b45309; }
+  .tag.failed { background:#fee2e2; color:#b91c1c; }
+  .tag.active { background:#dbeafe; color:#1d4ed8; }
+  .tag.disabled { background:#f3f4f6; color:#6b7280; }
+  .tag.admin { background:#ede9fe; color:#6d28d9; }
+  button.mini { padding:3px 9px; font-size:12px; border-radius:6px; border:1px solid #e5e7eb;
+                background:#fff; color:#374151; cursor:pointer; margin:2px 4px 2px 0; }
+  button.mini:hover { border-color:#bfdbfe; color:#2563eb; }
+  button.mini.danger { color:#dc2626; border-color:#fecaca; }
+  .note { color:#b91c1c; font-size:12px; }
+  .empty { color:#9ca3af; font-size:13px; padding:8px 0; }
+  .upload { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  input[type=file] { font-size:13px; }
+  button.primary { padding:8px 16px; font-size:13px; border-radius:8px; border:0;
+                   background:#2563eb; color:#fff; cursor:pointer; }
+  button.primary:disabled { background:#93b4f5; cursor:not-allowed; }
+  .hint { font-size:12px; color:#6b7280; margin-top:10px; line-height:1.7; }
+  .msg { font-size:13px; margin-top:12px; min-height:18px; }
+  .msg.err { color:#b91c1c; } .msg.ok { color:#15803d; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>管理后台</h1>
+  <div class="right">
+    <span id="who"></span>
+    <a href="/chat">返回咨询</a>
+    <a href="#" id="logout">退出</a>
+  </div>
+</header>
+<main>
+  <div class="tabs">
+    <button data-tab="stats" class="on">数据看板</button>
+    <button data-tab="users">用户管理</button>
+    <button data-tab="docs">知识库</button>
+  </div>
+
+  <div id="panel-stats">
+    <section>
+      <h2>核心指标</h2>
+      <div class="cards" id="cards"><div class="empty">加载中…</div></div>
+    </section>
+    <section>
+      <h2>近 14 天提问量</h2>
+      <div class="chart" id="chart"></div>
+      <div class="axis"><span id="axisStart"></span><span id="axisEnd"></span></div>
+    </section>
+    <section>
+      <h2>高频问题</h2>
+      <div id="topq"></div>
+    </section>
+    <section>
+      <h2>知识库缺口 <span style="color:#9ca3af;font-weight:400;font-size:12px">高频但答不上来，优先补条文</span></h2>
+      <div id="gapq"></div>
+    </section>
+  </div>
+
+  <div id="panel-users" class="hidden">
+    <section>
+      <h2>用户列表</h2>
+      <div id="users"></div>
+      <p class="hint">
+        停用会立即清空该用户的登录状态；删除会连同其会话记录一并移除。
+        管理员不能停用/删除自己，系统至少保留一个可用管理员。
+      </p>
+    </section>
+  </div>
+
+  <div id="panel-docs" class="hidden">
+    <section>
+      <h2>上传法规文件</h2>
+      <div class="upload">
+        <input type="file" id="file" accept=".txt,.md,.pdf">
+        <button class="primary" id="upload">上传并建索引</button>
+      </div>
+      <p class="hint">
+        支持 .txt / .md / .pdf，单文件不超过 10MB，正文需保持“一行一条”的“第X条”格式。<br>
+        同名法规会整部替换；索引在后台构建，BM25 需全量重建，条文多的文件可能要几十秒。
+      </p>
+      <div id="msg" class="msg"></div>
+    </section>
+    <section>
+      <h2>当前知识库 <span id="total" style="color:#6b7280;font-weight:400"></span></h2>
+      <div id="library"></div>
+    </section>
+    <section>
+      <h2>上传记录</h2>
+      <div id="docs"></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let timer = null;
+
+async function api(url, options) {
+  const res = await fetch(url, options);
+  if (res.status === 401) { location.href = '/'; throw new Error('未登录'); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || '请求失败');
+  return data;
+}
+
+function show(text, kind) {
+  $('msg').className = 'msg ' + (kind || '');
+  $('msg').textContent = text || '';
+}
+
+document.querySelectorAll('.tabs button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabs button').forEach((b) => b.classList.remove('on'));
+    btn.classList.add('on');
+    ['stats', 'users', 'docs'].forEach((name) => {
+      $('panel-' + name).classList.toggle('hidden', name !== btn.dataset.tab);
+    });
+    if (btn.dataset.tab === 'stats') loadStats();
+    if (btn.dataset.tab === 'users') loadUsers();
+    if (btn.dataset.tab === 'docs') loadDocs();
+  });
+});
+
+function card(label, value, unit) {
+  return '<div class="card"><div class="k">' + label + '</div><div class="v">' +
+    value + '</div><div class="u">' + (unit || '') + '</div></div>';
+}
+
+function pct(v) { return (v * 100).toFixed(1) + '%'; }
+
+async function loadStats() {
+  try {
+    const d = await api('/api/admin/stats?days=14');
+    const o = d.overview;
+    $('cards').innerHTML =
+      card('累计用户', o.users_total, '停用 ' + o.users_disabled + ' 人') +
+      card('提问过的用户', o.users_asked, '今日 ' + o.today_users + ' 人') +
+      card('累计提问', o.questions, '今日 ' + o.today_questions + ' 次') +
+      card('拒答率', pct(o.refusal_rate), '含"无法确定"的回答占比') +
+      card('引用可溯源率', pct(o.citation_rate), '条号均可在检索结果中找到') +
+      card('平均响应', o.avg_elapsed ? o.avg_elapsed + 's' : '—',
+           '平均引用 ' + (o.avg_sources || 0) + ' 条');
+
+    const trend = d.trend || [];
+    const max = Math.max(1, ...trend.map((t) => t.questions));
+    $('chart').innerHTML = trend.map((t) =>
+      '<div class="bar" title="' + esc(t.date) + '：提问 ' + t.questions +
+      ' 次，用户 ' + t.users + ' 人"><span style="height:' +
+      Math.round(t.questions / max * 100) + '%"></span></div>').join('');
+    if (trend.length) {
+      $('axisStart').textContent = trend[0].date.slice(5);
+      $('axisEnd').textContent = trend[trend.length - 1].date.slice(5);
+    }
+
+    const top = d.top_questions || [];
+    $('topq').innerHTML = top.length
+      ? '<table><thead><tr><th>问题</th><th style="width:80px">次数</th></tr></thead><tbody>' +
+        top.map((q) => '<tr><td>' + esc(q.question) + '</td><td>' + q.times + '</td></tr>').join('') +
+        '</tbody></table>'
+      : '<div class="empty">还没有提问记录</div>';
+
+    const gap = d.gap_questions || [];
+    $('gapq').innerHTML = gap.length
+      ? '<table><thead><tr><th>问题</th><th style="width:80px">被问次数</th></tr></thead><tbody>' +
+        gap.map((q) => '<tr><td>' + esc(q.question) + '</td><td>' + q.times + '</td></tr>').join('') +
+        '</tbody></table>'
+      : '<div class="empty">暂无"答不上来"的高频问题</div>';
+  } catch (err) {
+    $('cards').innerHTML = '<div class="empty">加载失败：' + esc(err.message) + '</div>';
+  }
+}
+
+async function loadUsers() {
+  try {
+    const d = await api('/api/admin/users');
+    if (!d.users.length) { $('users').innerHTML = '<div class="empty">暂无用户</div>'; return; }
+    const rows = d.users.map((u) => {
+      const role = u.role === 'admin'
+        ? '<span class="tag admin">管理员</span>' : '普通用户';
+      const status = u.status === 'active'
+        ? '<span class="tag active">正常</span>' : '<span class="tag disabled">已停用</span>';
+      const self = u.id === d.self_id ? '（我）' : '';
+      return '<tr><td>' + esc(u.username) + self + '</td><td>' + role + '</td><td>' + status +
+        '</td><td>' + u.sessions + '</td><td>' + u.questions + '</td><td>' +
+        esc((u.last_active || '—').slice(0, 16)) + '</td><td>' +
+        '<button class="mini" data-act="toggle" data-id="' + u.id + '" data-status="' +
+        u.status + '">' + (u.status === 'active' ? '停用' : '启用') + '</button>' +
+        '<button class="mini" data-act="reset" data-id="' + u.id + '" data-name="' +
+        esc(u.username) + '">重置密码</button>' +
+        '<button class="mini" data-act="role" data-id="' + u.id + '" data-role="' + u.role +
+        '">' + (u.role === 'admin' ? '降为普通' : '设为管理员') + '</button>' +
+        '<button class="mini danger" data-act="del" data-id="' + u.id + '" data-name="' +
+        esc(u.username) + '">删除</button></td></tr>';
+    }).join('');
+    $('users').innerHTML =
+      '<table><thead><tr><th>用户名</th><th>角色</th><th>状态</th><th>会话</th><th>提问</th>' +
+      '<th>最后活跃</th><th>操作</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    $('users').querySelectorAll('button[data-act]').forEach((btn) => {
+      btn.addEventListener('click', () => userAction(btn.dataset));
+    });
+  } catch (err) {
+    $('users').innerHTML = '<div class="empty">加载失败：' + esc(err.message) + '</div>';
+  }
+}
+
+async function userAction(ds) {
+  const id = ds.id;
+  try {
+    if (ds.act === 'toggle') {
+      const next = ds.status === 'active' ? 'disabled' : 'active';
+      await api('/api/admin/users/' + id, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: next })
+      });
+    } else if (ds.act === 'role') {
+      const next = ds.role === 'admin' ? 'user' : 'admin';
+      await api('/api/admin/users/' + id, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: next })
+      });
+    } else if (ds.act === 'reset') {
+      if (!confirm('重置「' + ds.name + '」的密码？该用户会被强制下线。')) return;
+      const r = await api('/api/admin/users/' + id + '/reset-password', { method: 'POST' });
+      alert('已重置。\n用户名：' + r.username + '\n新密码：' + r.password +
+            '\n\n请通过安全渠道转达，此密码只显示一次。');
+    } else if (ds.act === 'del') {
+      if (!confirm('删除「' + ds.name + '」？其全部会话记录会一并删除，不可恢复。')) return;
+      await api('/api/admin/users/' + id, { method: 'DELETE' });
+    }
+    loadUsers();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function renderLibrary(items, total) {
+  $('total').textContent = '共 ' + total + ' 块';
+  if (!items.length) { $('library').innerHTML = '<div class="empty">知识库为空</div>'; return; }
+  const rows = items.map((i) =>
+    '<tr><td>' + esc(i.law) + '</td><td>' + i.chunks + '</td></tr>').join('');
+  $('library').innerHTML =
+    '<table><thead><tr><th>法规</th><th>条文块数</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function renderDocs(items) {
+  if (!items.length) { $('docs').innerHTML = '<div class="empty">还没有上传记录</div>'; return; }
+  const rows = items.map((d) => {
+    const label = { done: '已完成', indexing: '建索引中', failed: '失败' }[d.status] || d.status;
+    const tag = '<span class="tag ' + d.status + '">' + label + '</span>';
+    const note = d.note ? '<div class="note">' + esc(d.note) + '</div>' : '';
+    return '<tr><td>' + esc(d.filename) + '</td><td>' + esc(d.law) + '</td><td>' +
+      (d.article_count || '-') + '</td><td>' + tag + note + '</td><td>' +
+      esc(d.created_at) + '</td><td><button class="mini danger" data-id="' + d.id +
+      '" data-law="' + esc(d.law) + '">移除</button></td></tr>';
+  }).join('');
+  $('docs').innerHTML =
+    '<table><thead><tr><th>文件</th><th>法规</th><th>块数</th><th>状态</th><th>时间</th>' +
+    '<th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+  $('docs').querySelectorAll('button[data-id]').forEach((btn) => {
+    btn.addEventListener('click', () => removeDoc(btn.dataset.id, btn.dataset.law));
+  });
+}
+
+async function loadDocs() {
+  const data = await api('/api/admin/documents');
+  renderLibrary(data.library, data.total_chunks);
+  renderDocs(data.documents);
+  const pending = data.documents.some((d) => d.status === 'indexing');
+  clearTimeout(timer);
+  if (pending) timer = setTimeout(loadDocs, 2000);
+}
+
+async function removeDoc(id, law) {
+  if (!confirm('删除《' + law + '》会把它从知识库中整部移除，确定？')) return;
+  try {
+    const data = await api('/api/admin/documents/' + id, { method: 'DELETE' });
+    show('已移除《' + data.law + '》，删除 ' + data.removed_chunks + ' 块', 'ok');
+    loadDocs();
+  } catch (err) { show(err.message, 'err'); }
+}
+
+$('upload').addEventListener('click', async () => {
+  const input = $('file');
+  if (!input.files.length) { show('请先选择文件', 'err'); return; }
+  const form = new FormData();
+  form.append('file', input.files[0]);
+  $('upload').disabled = true;
+  show('上传中…');
+  try {
+    const data = await api('/api/admin/documents', { method: 'POST', body: form });
+    show('已接收《' + data.law + '》，正在后台建索引…', 'ok');
+    input.value = '';
+    loadDocs();
+  } catch (err) {
+    show(err.message, 'err');
+  } finally {
+    $('upload').disabled = false;
+  }
+});
+
+$('logout').addEventListener('click', async (event) => {
+  event.preventDefault();
+  await fetch('/api/auth/logout', { method: 'POST' });
+  location.href = '/';
+});
+
+(async () => {
+  try {
+    const user = await api('/api/auth/me');
+    if (user.role !== 'admin') { location.href = '/chat'; return; }
+    $('who').textContent = user.username + '（管理员）';
+    await loadStats();
+  } catch (err) { /* 未登录会跳转 */ }
+})();
+</script>
+</body>
+</html>
