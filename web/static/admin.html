@@ -6,55 +6,89 @@
 <title>管理后台 · 劳动法智能问答助手</title>
 <style>
   * { box-sizing:border-box; }
-  body { margin:0; background:#f7f8fa; color:#1f2328;
-         font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; }
-  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:14px 28px;
+  :root {
+    --paper:#f6f4ed; --card:#fdfcf7; --ink:#1e1a14; --body:#3a352b;
+    --sub:#7e7767; --faint:#aaa18f; --line:#e5e0cf; --line2:#d9d2bd;
+    --seal:#a63a2c;
+    --serif:"Songti SC","STSong","Noto Serif CJK SC","Noto Serif SC","SimSun",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    --num:ui-monospace,"SF Mono",Consolas,monospace;
+  }
+  ::selection { background:rgba(166,58,44,.18); }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans);
+         -webkit-font-smoothing:antialiased; }
+  header { background:var(--card); border-bottom:1px solid var(--line2); padding:15px 30px;
            display:flex; align-items:center; justify-content:space-between; }
-  header h1 { font-size:16px; font-weight:600; margin:0; }
-  header .right { font-size:13px; color:#6b7280; display:flex; gap:14px; align-items:center; }
-  header a { color:#2563eb; text-decoration:none; font-size:13px; }
-  main { max-width:1040px; margin:20px auto 60px; padding:0 24px; }
-  .tabs { display:flex; gap:6px; margin-bottom:16px; }
-  .tabs button { padding:8px 16px; font-size:13px; border:1px solid #e5e7eb; background:#fff;
-                 color:#4b5563; border-radius:8px; cursor:pointer; }
-  .tabs button.on { background:#2563eb; border-color:#2563eb; color:#fff; }
-  section { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; margin-bottom:16px; }
-  section h2 { font-size:14px; font-weight:600; margin:0 0 14px; }
-  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr)); gap:10px; }
-  .card { border:1px solid #eef0f3; border-radius:10px; padding:12px 14px; background:#fcfcfd; }
-  .card .k { font-size:12px; color:#6b7280; }
-  .card .v { font-size:20px; font-weight:600; margin-top:5px; }
-  .card .u { font-size:11px; color:#9ca3af; margin-top:3px; }
+  header h1 { font-family:var(--serif); font-size:18px; font-weight:600; margin:0;
+              letter-spacing:.12em; display:flex; align-items:center; gap:10px; }
+  header h1::before { content:""; width:8px; height:8px; background:var(--seal); }
+  header .right { font-size:13px; color:var(--sub); display:flex; gap:16px; align-items:center; }
+  header a { color:var(--seal); text-decoration:none; font-size:13px; }
+  header a:hover { text-decoration:underline; text-underline-offset:3px; }
+  main { max-width:1040px; margin:24px auto 64px; padding:0 24px; }
+  .tabs { display:flex; gap:22px; margin-bottom:18px; border-bottom:1px solid var(--line2); }
+  .tabs button { padding:9px 2px 10px; font-size:13.5px; letter-spacing:.1em; border:0;
+                 border-bottom:2px solid transparent; margin-bottom:-1px; background:transparent;
+                 color:var(--sub); cursor:pointer; transition:color .12s, border-color .12s; }
+  .tabs button:hover { color:var(--ink); }
+  .tabs button.on { color:var(--seal); border-bottom-color:var(--seal); font-weight:600; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:2px;
+            padding:22px 22px 20px; margin-bottom:16px; }
+  section h2 { font-family:var(--serif); font-size:15px; font-weight:600; letter-spacing:.1em;
+               margin:0 0 16px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  section h2 .mini { margin-left:auto; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .card { border:1px solid var(--line); border-radius:2px; padding:14px 15px 12px; background:#fff;
+          transition:border-color .15s; }
+  .card:hover { border-color:var(--line2); }
+  .card .k { font-size:11.5px; color:var(--sub); letter-spacing:.08em; }
+  .card .v { font-family:var(--serif); font-size:24px; font-weight:600; margin-top:7px;
+             font-variant-numeric:tabular-nums; }
+  .card .u { font-size:11px; color:var(--faint); margin-top:5px; line-height:1.5; }
   .chart { display:flex; align-items:flex-end; gap:5px; height:120px; margin-top:8px; }
   .bar { flex:1; height:100%; display:flex; align-items:flex-end; }
-  .bar span { width:100%; background:#bfdbfe; border-radius:3px 3px 0 0; min-height:2px; }
-  .bar:hover span { background:#60a5fa; }
-  .axis { display:flex; justify-content:space-between; font-size:11px; color:#9ca3af; margin-top:6px; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  th { text-align:left; color:#6b7280; font-weight:500; padding:8px 10px; border-bottom:1px solid #e5e7eb; }
-  td { padding:9px 10px; border-bottom:1px solid #f1f2f4; vertical-align:middle; }
-  tr:last-child td { border-bottom:0; }
-  .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; }
-  .tag.done { background:#dcfce7; color:#15803d; }
-  .tag.indexing { background:#fef3c7; color:#b45309; }
-  .tag.failed { background:#fee2e2; color:#b91c1c; }
-  .tag.active { background:#dbeafe; color:#1d4ed8; }
-  .tag.disabled { background:#f3f4f6; color:#6b7280; }
-  .tag.admin { background:#ede9fe; color:#6d28d9; }
-  button.mini { padding:3px 9px; font-size:12px; border-radius:6px; border:1px solid #e5e7eb;
-                background:#fff; color:#374151; cursor:pointer; margin:2px 4px 2px 0; }
-  button.mini:hover { border-color:#bfdbfe; color:#2563eb; }
-  button.mini.danger { color:#dc2626; border-color:#fecaca; }
-  .note { color:#b91c1c; font-size:12px; }
-  .empty { color:#9ca3af; font-size:13px; padding:8px 0; }
+  .bar span { width:100%; background:#cfc7b2; border-radius:1px 1px 0 0; min-height:2px;
+              transition:background .12s; }
+  .bar:hover span { background:var(--seal); }
+  .axis { display:flex; justify-content:space-between; font-size:11px; color:var(--faint);
+          margin-top:7px; font-family:var(--num); }
+  table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
+  thead th { text-align:left; color:var(--faint); font-weight:500; font-size:11.5px;
+             letter-spacing:.08em; padding:0 10px 9px; border-bottom:1px solid var(--line2);
+             white-space:nowrap; }
+  tbody td { padding:10px; border-bottom:1px solid var(--line); vertical-align:middle; color:var(--body); }
+  tbody tr:hover { background:#faf8f0; }
+  tbody tr:last-child td { border-bottom:0; }
+  td.num, th.num { text-align:right; font-family:var(--num); letter-spacing:-.01em; }
+  td.num { color:var(--ink); }
+  .scroll { overflow-x:auto; }
+  .scroll table { min-width:520px; }
+  .tag { display:inline-block; padding:2px 9px; border-radius:2px; font-size:12px;
+         border:1px solid transparent; }
+  .tag.done { background:#eef2e4; color:#4d6b2f; border-color:#dde5cb; }
+  .tag.indexing { background:#faf0dd; color:#9a6415; border-color:#efdfc2; }
+  .tag.failed { background:#f9e8e5; color:#a63a2c; border-color:#eed2cc; }
+  .tag.active { background:#eef2e4; color:#4d6b2f; border-color:#dde5cb; }
+  .tag.disabled { background:#f0eee6; color:#7e7767; border-color:#e2ddcd; }
+  .tag.admin { background:#f3ece0; color:#8a5a18; border-color:#e6d8bd; }
+  button.mini { padding:3px 10px; font-size:12px; border-radius:2px; border:1px solid var(--line2);
+                background:transparent; color:var(--body); cursor:pointer; margin:2px 4px 2px 0;
+                transition:border-color .12s, color .12s; }
+  button.mini:hover { border-color:var(--seal); color:var(--seal); }
+  button.mini.danger { color:#a63a2c; border-color:#e3c3bc; }
+  button.mini.danger:hover { background:#f9e8e5; }
+  .note { color:#a63a2c; font-size:12px; }
+  .empty { color:var(--faint); font-size:13px; padding:8px 0; }
   .upload { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
   input[type=file] { font-size:13px; }
-  button.primary { padding:8px 16px; font-size:13px; border-radius:8px; border:0;
-                   background:#2563eb; color:#fff; cursor:pointer; }
-  button.primary:disabled { background:#93b4f5; cursor:not-allowed; }
-  .hint { font-size:12px; color:#6b7280; margin-top:10px; line-height:1.7; }
+  button.primary { padding:9px 18px; font-size:13px; letter-spacing:.08em; border-radius:2px;
+                   border:1px solid var(--ink); background:var(--ink); color:#f5f1e4;
+                   cursor:pointer; transition:background .15s, border-color .15s; }
+  button.primary:hover:not(:disabled) { background:var(--seal); border-color:var(--seal); }
+  button.primary:disabled { background:#b9b09c; border-color:#b9b09c; cursor:not-allowed; }
+  .hint { font-size:12px; color:var(--sub); margin-top:12px; line-height:1.8; }
   .msg { font-size:13px; margin-top:12px; min-height:18px; }
-  .msg.err { color:#b91c1c; } .msg.ok { color:#15803d; }
+  .msg.err { color:#a63a2c; } .msg.ok { color:#4d6b2f; }
   .hidden { display:none; }
 </style>
 </head>
@@ -182,19 +216,22 @@ async function loadEval(refresh) {
   box.innerHTML = '<div class="empty">评测中，首次需 5–10 秒（含模型加载），之后有缓存…</div>';
   try {
     const d = await api('/api/admin/eval' + (refresh ? '?refresh=true' : ''));
-    const row = (s) => '<tr><td>' + esc(s.title) + '</td><td>' + s.total + '</td><td>' +
-      pct(s.hit3) + '</td><td>' + pct(s.recall5) + '</td><td>' + pct(s.coverage) + '</td></tr>';
+    const row = (s) => '<tr><td>' + esc(s.title) + '</td><td class="num">' + s.total +
+      '</td><td class="num">' + pct(s.hit3) + '</td><td class="num">' + pct(s.recall5) +
+      '</td><td class="num">' + pct(s.coverage) + '</td></tr>';
     const bad = (d.multi.cases || []).filter((c) => !c.ok).map((c) => '#' + c.qid).join(' ');
     box.innerHTML =
-      '<table><thead><tr><th>测试集</th><th>题数</th><th>hit@3</th><th>recall@5</th>' +
-      '<th>上下文覆盖</th></tr></thead><tbody>' +
+      '<div class="scroll"><table><thead><tr><th>测试集</th><th class="num">题数</th>' +
+      '<th class="num">hit@3</th><th class="num">recall@5</th><th class="num">上下文覆盖</th>' +
+      '</tr></thead><tbody>' +
       row(d.origin) + row(d.extra) + (d.v2 ? row(d.v2) : '') +
-      '<tr><td>多轮场景</td><td>' + d.multi.total + '</td><td colspan="3">通过 ' +
+      '<tr><td>多轮场景</td><td class="num">' + d.multi.total + '</td><td colspan="3">通过 ' +
       d.multi.passed + '/' + d.multi.total + (bad ? '（失败 ' + bad + '）' : '') + '</td></tr>' +
-      (d.overall ? '<tr style="border-top:2px solid #e5e7eb"><td><strong>合计</strong></td><td>' +
-        d.overall.total + '</td><td>' + pct(d.overall.hit3) + '</td><td>' +
-        pct(d.overall.recall5) + '</td><td>' + pct(d.overall.coverage) + '</td></tr>' : '') +
-      '</tbody></table>' +
+      (d.overall ? '<tr style="border-top:2px solid #e5e7eb"><td><strong>合计</strong></td>' +
+        '<td class="num">' + d.overall.total + '</td><td class="num">' + pct(d.overall.hit3) +
+        '</td><td class="num">' + pct(d.overall.recall5) + '</td><td class="num">' +
+        pct(d.overall.coverage) + '</td></tr>' : '') +
+      '</tbody></table></div>' +
       '<p class="hint">生成于 ' + esc(d.generated_at) + '，耗时 ' + d.elapsed +
       's。hit@3 看排序，上下文覆盖看"该给的条文有没有给"（含引用补全追加的条文）。' +
       (d.overall ? ' 合计 hit@3 的 95% 置信区间为 [' + d.overall.ci[0] + ', ' + d.overall.ci[1] +
@@ -232,16 +269,18 @@ async function loadStats() {
 
     const top = d.top_questions || [];
     $('topq').innerHTML = top.length
-      ? '<table><thead><tr><th>问题</th><th style="width:80px">次数</th></tr></thead><tbody>' +
-        top.map((q) => '<tr><td>' + esc(q.question) + '</td><td>' + q.times + '</td></tr>').join('') +
-        '</tbody></table>'
+      ? '<div class="scroll"><table><thead><tr><th>问题</th><th class="num" style="width:72px">次数</th>' +
+        '</tr></thead><tbody>' +
+        top.map((q) => '<tr><td>' + esc(q.question) + '</td><td class="num">' + q.times + '</td></tr>').join('') +
+        '</tbody></table></div>'
       : '<div class="empty">还没有提问记录</div>';
 
     const gap = d.gap_questions || [];
     $('gapq').innerHTML = gap.length
-      ? '<table><thead><tr><th>问题</th><th style="width:80px">被问次数</th></tr></thead><tbody>' +
-        gap.map((q) => '<tr><td>' + esc(q.question) + '</td><td>' + q.times + '</td></tr>').join('') +
-        '</tbody></table>'
+      ? '<div class="scroll"><table><thead><tr><th>问题</th><th class="num" style="width:88px">被问次数</th>' +
+        '</tr></thead><tbody>' +
+        gap.map((q) => '<tr><td>' + esc(q.question) + '</td><td class="num">' + q.times + '</td></tr>').join('') +
+        '</tbody></table></div>'
       : '<div class="empty">暂无"答不上来"的高频问题</div>';
   } catch (err) {
     $('cards').innerHTML = '<div class="empty">加载失败：' + esc(err.message) + '</div>';
@@ -259,7 +298,8 @@ async function loadUsers() {
         ? '<span class="tag active">正常</span>' : '<span class="tag disabled">已停用</span>';
       const self = u.id === d.self_id ? '（我）' : '';
       return '<tr><td>' + esc(u.username) + self + '</td><td>' + role + '</td><td>' + status +
-        '</td><td>' + u.sessions + '</td><td>' + u.questions + '</td><td>' +
+        '</td><td class="num">' + u.sessions + '</td><td class="num">' + u.questions +
+        '</td><td class="num">' +
         esc((u.last_active || '—').slice(0, 16)) + '</td><td>' +
         '<button class="mini" data-act="toggle" data-id="' + u.id + '" data-status="' +
         u.status + '">' + (u.status === 'active' ? '停用' : '启用') + '</button>' +
@@ -271,8 +311,9 @@ async function loadUsers() {
         esc(u.username) + '">删除</button></td></tr>';
     }).join('');
     $('users').innerHTML =
-      '<table><thead><tr><th>用户名</th><th>角色</th><th>状态</th><th>会话</th><th>提问</th>' +
-      '<th>最后活跃</th><th>操作</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      '<div class="scroll"><table><thead><tr><th>用户名</th><th>角色</th><th>状态</th>' +
+      '<th class="num">会话</th><th class="num">提问</th>' +
+      '<th>最后活跃</th><th>操作</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
     $('users').querySelectorAll('button[data-act]').forEach((btn) => {
       btn.addEventListener('click', () => userAction(btn.dataset));
     });

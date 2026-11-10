@@ -5,23 +5,42 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>登录 · 劳动法智能问答助手</title>
 <style>
+  * { box-sizing:border-box; }
+  ::selection { background:rgba(166,58,44,.18); }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-         font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; background:#f5f6f8; color:#1f2328; }
-  .card { width:352px; padding:32px; background:#fff; border:1px solid #e5e7eb; border-radius:14px; }
-  h1 { font-size:18px; font-weight:600; margin:0 0 6px; }
-  .hint { font-size:13px; color:#6b7280; margin:0 0 20px; line-height:1.6; }
-  label { display:block; font-size:13px; color:#374151; margin:14px 0 6px; }
-  input { width:100%; box-sizing:border-box; padding:9px 11px; font-size:14px; color:#111827;
-          border:1px solid #d1d5db; border-radius:8px; background:#fff; }
-  input:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.12); }
-  button { width:100%; padding:10px; font-size:14px; border-radius:8px; cursor:pointer; margin-top:18px; }
-  #submit { border:0; background:#2563eb; color:#fff; }
-  #submit:hover { background:#1d4ed8; }
-  .ghost { border:1px solid #dbeafe; background:#fff; color:#2563eb; margin-top:10px; }
-  .msg { min-height:18px; margin-top:14px; font-size:13px; line-height:1.5; }
-  .msg.err { color:#b91c1c; }
-  .msg.ok { color:#15803d; }
-  .foot { margin-top:18px; font-size:12px; color:#9ca3af; line-height:1.6; }
+         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+         background:#f6f4ed; color:#1e1a14; -webkit-font-smoothing:antialiased; }
+  .card { width:360px; padding:40px 36px 28px; background:#fdfcf7; border:1px solid #d9d2bd;
+          border-radius:2px; text-align:center; }
+  .card::before { content:"法"; display:flex; align-items:center; justify-content:center;
+                  width:46px; height:46px; margin:0 auto 18px; background:#a63a2c; color:#fdfcf7;
+                  font-family:"Songti SC","STSong","SimSun",serif; font-size:24px; font-weight:600;
+                  border-radius:3px; box-shadow:inset 0 0 0 2px rgba(253,252,247,.35); }
+  h1 { font-family:"Songti SC","STSong","SimSun",serif; font-size:22px; font-weight:600;
+       margin:0 0 8px; letter-spacing:.24em; text-indent:.24em; }
+  .hint { font-size:12px; color:#7e7767; margin:0 0 24px; line-height:1.7; letter-spacing:.06em; }
+  label { display:block; text-align:left; font-size:12px; letter-spacing:.12em;
+          color:#7e7767; margin:16px 0 7px; }
+  input { width:100%; box-sizing:border-box; padding:10px 12px; font-size:14px; color:#1e1a14;
+          border:1px solid #d9d2bd; border-radius:2px; background:#fff;
+          transition:border-color .15s, box-shadow .15s; }
+  input:focus { outline:none; border-color:#a63a2c; box-shadow:0 0 0 3px rgba(166,58,44,.10); }
+  button { width:100%; padding:11px; font-size:14px; border-radius:2px; cursor:pointer; margin-top:20px;
+           letter-spacing:.3em; text-indent:.3em;
+           font-family:"Songti SC","STSong","SimSun",serif;
+           transition:background .15s, border-color .15s, color .15s; }
+  #submit { border:1px solid #1e1a14; background:#1e1a14; color:#f5f1e4; }
+  #submit:hover:not(:disabled) { background:#a63a2c; border-color:#a63a2c; }
+  #submit:disabled { background:#b9b09c; border-color:#b9b09c; }
+  .ghost { border:1px solid #d9d2bd; background:transparent; color:#7e7767; margin-top:10px;
+           font-size:12px; letter-spacing:.1em; text-indent:.1em;
+           font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; }
+  .ghost:hover { border-color:#a63a2c; color:#a63a2c; }
+  .msg { min-height:18px; margin-top:14px; font-size:13px; line-height:1.5; text-align:left; }
+  .msg.err { color:#a63a2c; }
+  .msg.ok { color:#4d6b2f; }
+  .foot { margin-top:22px; padding-top:16px; border-top:1px solid #e5e0cf; font-size:11.5px;
+          color:#aaa18f; line-height:1.7; }
 </style>
 </head>
 <body>

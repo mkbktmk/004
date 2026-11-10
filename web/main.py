@@ -87,19 +87,24 @@ def me(user: dict = Depends(auth.require_user)) -> dict:
     return user
 
 
+# 页面是开发期高频修改的静态文件，禁掉启发式缓存：浏览器每次都回来确认，
+# 文件一变立刻拿到新版本，省得改完样式却在看旧页面。
+NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
+
+
 @app.get("/", include_in_schema=False)
 def page_login() -> FileResponse:
     """登录页。"""
-    return FileResponse(STATIC_DIR / "login.html")
+    return FileResponse(STATIC_DIR / "login.html", headers=NO_CACHE)
 
 
 @app.get("/chat", include_in_schema=False)
 def page_chat() -> FileResponse:
     """咨询页。"""
-    return FileResponse(STATIC_DIR / "chat.html")
+    return FileResponse(STATIC_DIR / "chat.html", headers=NO_CACHE)
 
 
 @app.get("/admin", include_in_schema=False)
 def page_admin() -> FileResponse:
     """知识库管理页（前端会校验角色，非管理员跳回咨询页）。"""
-    return FileResponse(STATIC_DIR / "admin.html")
+    return FileResponse(STATIC_DIR / "admin.html", headers=NO_CACHE)
