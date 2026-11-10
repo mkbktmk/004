@@ -92,6 +92,11 @@
       <h2>知识库缺口 <span style="color:#9ca3af;font-weight:400;font-size:12px">高频但答不上来，优先补条文</span></h2>
       <div id="gapq"></div>
     </section>
+    <section>
+      <h2>检索质量 <span style="color:#9ca3af;font-weight:400;font-size:12px">离线测试集，改动后可重跑</span>
+        <button class="mini" id="rerun" style="float:right">重新评测</button></h2>
+      <div id="evalbox"><div class="empty">加载中…</div></div>
+    </section>
   </div>
 
   <div id="panel-users" class="hidden">
@@ -137,8 +142,13 @@ let timer = null;
 async function api(url, options) {
   const res = await fetch(url, options);
   if (res.status === 401) { location.href = '/'; throw new Error('未登录'); }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || '请求失败');
+  const text = await res.text();
+  let data = {};
+  try { data = JSON.parse(text); } catch (e) { /* 500 时是纯文本，解析不了正常 */ }
+  if (!res.ok) {
+    const detail = (data && data.detail) || (text && text.length < 120 ? text.trim() : '');
+    throw new Error('HTTP ' + res.status + (detail ? '：' + detail : ''));
+  }
   return data;
 }
 
@@ -166,6 +176,35 @@ function card(label, value, unit) {
 }
 
 function pct(v) { return (v * 100).toFixed(1) + '%'; }
+
+async function loadEval(refresh) {
+  const box = $('evalbox');
+  box.innerHTML = '<div class="empty">评测中，首次需 5–10 秒（含模型加载），之后有缓存…</div>';
+  try {
+    const d = await api('/api/admin/eval' + (refresh ? '?refresh=true' : ''));
+    const row = (s) => '<tr><td>' + esc(s.title) + '</td><td>' + s.total + '</td><td>' +
+      pct(s.hit3) + '</td><td>' + pct(s.recall5) + '</td><td>' + pct(s.coverage) + '</td></tr>';
+    const bad = (d.multi.cases || []).filter((c) => !c.ok).map((c) => '#' + c.qid).join(' ');
+    box.innerHTML =
+      '<table><thead><tr><th>测试集</th><th>题数</th><th>hit@3</th><th>recall@5</th>' +
+      '<th>上下文覆盖</th></tr></thead><tbody>' +
+      row(d.origin) + row(d.extra) + (d.v2 ? row(d.v2) : '') +
+      '<tr><td>多轮场景</td><td>' + d.multi.total + '</td><td colspan="3">通过 ' +
+      d.multi.passed + '/' + d.multi.total + (bad ? '（失败 ' + bad + '）' : '') + '</td></tr>' +
+      (d.overall ? '<tr style="border-top:2px solid #e5e7eb"><td><strong>合计</strong></td><td>' +
+        d.overall.total + '</td><td>' + pct(d.overall.hit3) + '</td><td>' +
+        pct(d.overall.recall5) + '</td><td>' + pct(d.overall.coverage) + '</td></tr>' : '') +
+      '</tbody></table>' +
+      '<p class="hint">生成于 ' + esc(d.generated_at) + '，耗时 ' + d.elapsed +
+      's。hit@3 看排序，上下文覆盖看"该给的条文有没有给"（含引用补全追加的条文）。' +
+      (d.overall ? ' 合计 hit@3 的 95% 置信区间为 [' + d.overall.ci[0] + ', ' + d.overall.ci[1] +
+        ']，样本越大区间越窄。' : '') + '</p>';
+  } catch (err) {
+    box.innerHTML = '<div class="empty">评测失败：' + esc(err.message) + '</div>';
+  }
+}
+
+$('rerun').addEventListener('click', () => loadEval(true));
 
 async function loadStats() {
   try {
@@ -349,6 +388,7 @@ $('logout').addEventListener('click', async (event) => {
     if (user.role !== 'admin') { location.href = '/chat'; return; }
     $('who').textContent = user.username + '（管理员）';
     await loadStats();
+    loadEval(false);
   } catch (err) { /* 未登录会跳转 */ }
 })();
 </script>

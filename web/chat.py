@@ -127,10 +127,11 @@ def prepare_turn(payload: ChatIn, user: Dict) -> Tuple[str, List[Dict]]:
 
 
 def cite_flag(check: Dict, skip: bool = False) -> int:
-    """引用可溯源标记：1 全部有效 / 0 存在无效条号 / -1 不适用。"""
+    """引用可溯源标记：1 条号有效且摘录相符 / 0 存在问题 / -1 不适用。"""
     if skip or not check["cited"]:
         return -1
-    return 0 if check["invalid"] else 1
+    bad_quote = (check.get("quotes") or {}).get("bad") or []
+    return 0 if (check["invalid"] or bad_quote) else 1
 
 
 def save_turn(sid: str, question: str, answer: str, items: List[Dict], check: Dict,

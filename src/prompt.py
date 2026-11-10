@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Tuple
 
+from src.params import format_params, match_params
+
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
@@ -25,7 +27,7 @@ LAW_FULL_NAME: Dict[str, str] = {
 USER_TEMPLATE = """你是一名严谨的劳动法助手，服务对象是普通劳动者。
 请严格依据【参考法条】回答问题，遵守以下规则：
 1. 只能使用【参考法条】中的内容，不得使用你记忆中的其他法律规定。
-2. 每条结论后标注来源，格式为（《法规全名》第X条）；同一条法条只标注一次，后文再提不重复加括号。
+2. 每条结论后标注来源，格式为（《法规全名》第X条）；同一条法条只标注一次，后文再提不重复加括号。【依据】里每条法条后须附一段原文摘录，用「」括起，必须是该条文中的连续原文（6–20 字），不得改写或拼接。
 3. 按可答程度分三档回答，不要一律拒答：
    （a）法条足以回答：直接给结论；
    （b）法条给出了标准或公式、但缺少计算所需参数（如月计薪天数、当地职工月平均工资）：先说能确定什么，再写公式与已知条件，最后指明缺哪个参数——不得自行假设参数数值。注意区分：一年约 52 周、每月约 4.33 周、每日 8 小时属于常识换算，可以直接用；只有法律口径的参数（月计薪天数、当地职工月平均工资、最低工资标准）才算缺失；
@@ -33,12 +35,13 @@ USER_TEMPLATE = """你是一名严谨的劳动法助手，服务对象是普通�
 4. 涉及金额或天数计算时，按"公式 → 代入 → 结果"三步写；参数缺失时也要写出公式，把未知量标出来，不要跳过计算过程。若问题问的是"多少小时/多少天/多少倍"这类量化标准，即使没给具体数值，也要直接给出基准数字（如每日 8 小时、每月工时约 173 小时），再说明超限判断方法。
 5. 不要复述与问题无关的条文，不要输出法条原文全文；【依据】只列条号与一句话要点，不要重复【结论】里已说过的话；与结论无关的参考法条不要列进【依据】，特殊用工形式（非全日制、劳务派遣、以完成一定工作任务为期限）的条款仅在用户明确涉及该情形时引用。
 6. 语言简洁，面向非法律专业读者，必要时用一句话解释术语。
+7. 若给出【计算参数】，其中的折算口径（如月计薪天数）可直接用于计算，不要再声称"法条未规定折算标准"。参数仅供你内部计算使用：在【依据】里随对应法条一并注明出处即可，不要在答案末尾另起一段罗列参数原文。
 输出结构（按需选用：简单问题只写【结论】和【依据】即可）：
 【结论】一到三句话给出直接答案
 【依据】引用的法条及一句话要点，不复述结论
 【计算过程】仅计算题需要；缺参数时给出公式与待定项
 【提示】仅在确有易误解之处时写，最多两条
-{history_block}【参考法条】
+{history_block}{param_block}【参考法条】
 {context}
 【问题】
 {question}"""
@@ -152,12 +155,21 @@ def build_prompt(
         logger.info("对话模式 Prompt 构造完成：历史 %d 条，长度 %d 字", len(history or []), len(user))
         return META_SYSTEM, user
     context = build_context(retrieved)
+    # 参数匹配要带上历史里的用户提问：多轮时"那如果我月薪9000呢"本身不含"加班费"
+    probe = question + " " + " ".join(
+        str(m.get("content", "")) for m in (history or []) if m.get("role") == "user"
+    )
+    params = match_params(probe)
     user = USER_TEMPLATE.format(
-        history_block=format_history(history), context=context, question=question.strip()
+        history_block=format_history(history),
+        param_block=format_params(params),
+        context=context,
+        question=question.strip(),
     )
     logger.info(
-        "Prompt 构造完成：参考法条 %d 条，历史 %d 条，user 长度 %d 字",
+        "Prompt 构造完成：参考法条 %d 条，参数 %d 项，历史 %d 条，user 长度 %d 字",
         len(retrieved),
+        len(params),
         len(history or []),
         len(user),
     )

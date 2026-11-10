@@ -19,6 +19,7 @@ from web import auth, db
 from web.chat import router as chat_router
 from web.docs import router as docs_router
 from web.schemas import LoginIn, RegisterIn
+from web.quality import router as quality_router
 from web.stats import router as stats_router
 from web.stream import router as stream_router
 from web.users import router as users_router
@@ -44,6 +45,7 @@ app.include_router(chat_router)
 app.include_router(stream_router)
 app.include_router(docs_router)
 app.include_router(stats_router)
+app.include_router(quality_router)
 app.include_router(users_router)
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
